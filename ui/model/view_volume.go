@@ -83,5 +83,7 @@ func (m Model) renderVolumeCluster(left string) string {
 	remain := max(0, ui.PanelWidth-leftW-1)
 	labelW := lipgloss.Width(volLabel)
 	barW := max(6, remain-labelW-lipgloss.Width(volSuffix))
-	return volLabel + m.renderVolumeBar(barW) + volSuffix
+	right := volLabel + m.renderVolumeBar(barW) + volSuffix
+	gap := max(1, ui.PanelWidth-leftW-lipgloss.Width(right))
+	return left + strings.Repeat(" ", gap) + right
 }

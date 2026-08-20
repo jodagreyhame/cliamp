@@ -297,6 +297,7 @@ type Model struct {
 	eqSaveAfter    time.Duration
 	volumeSaveAfter time.Duration
 	levelMeter     *ui.LevelMeter
+	hits           *hitTargets
 	termTitle      terminalTitleState
 
 	// Jump to time mode

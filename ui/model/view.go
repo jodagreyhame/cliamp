@@ -151,12 +151,14 @@ func (m Model) View() tea.View {
 	rendered := m.centerFrame(ui.FrameStyle.Render(content))
 	rendered = ui.FitRect(rendered, m.layout.frameWidth, max(1, m.height))
 
+	m.recordHits(rendered)
 	view := tea.NewView(rendered)
 	view.BackgroundColor = ui.ColorBackground
 	if ui.ColorBackground != nil {
 		view.ForegroundColor = ui.ColorText
 	}
 	view.AltScreen = true
+	view.MouseMode = tea.MouseModeCellMotion
 	view.WindowTitle = currentTerminalTitle(m.termTitle, m.width, m.terminalTitleValues())
 	return view
 }
@@ -277,10 +279,6 @@ func (m Model) renderTransient() string {
 }
 
 func (m Model) renderCompactControls() string {
-	mono := ""
-	if m.player.Mono() {
-		mono = " [M]"
-	}
 	eqLabel := labelStyle.Render("EQ ")
 	eqValue := activeToggle.Render("[" + m.EQPresetName() + "]")
 	if m.focus == focusEQ {
@@ -289,7 +287,7 @@ func (m Model) renderCompactControls() string {
 		labels := [10]string{"70", "180", "320", "600", "1k", "3k", "6k", "12k", "14k", "16k"}
 		eqValue += " " + eqActiveStyle.Render(fmt.Sprintf("%s %+.0fdB", labels[m.eqCursor], bands[m.eqCursor]))
 	}
-	return eqLabel + eqValue + " " + m.renderCompactLevel() + " " + m.renderVolumeValue() + mono
+	return m.renderVolumeCluster(eqLabel + eqValue + " " + m.renderCompactLevel())
 }
 
 func (m Model) renderCompactSource() string {
@@ -525,12 +523,7 @@ func (m Model) renderControls() string {
 		eqLabel = activeToggle.Render("EQ ▸ ")
 	}
 	left := eqLabel + dimStyle.Render("[") + activeToggle.Render(presetName) + dimStyle.Render("] ") + strings.Join(eqParts, " ")
-
-	right := m.renderVolumeCluster(left)
-	leftW := lipgloss.Width(left)
-	rightW := lipgloss.Width(right)
-	gap := max(1, ui.PanelWidth-leftW-rightW)
-	return left + strings.Repeat(" ", gap) + right
+	return m.renderVolumeCluster(left)
 }
 
 func (m Model) renderProviderPill() string {

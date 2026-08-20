@@ -16,6 +16,7 @@ and library commands.
 | `Shift+Left` `Shift+Right` | Seek -/+30s (configurable) |
 | `N` then `j` | Seek to N×10% of the track (e.g. `7j` jumps to 70%, `0j` to the start) |
 | `+` `-` | Volume up/down (also Left/Right when Volume is focused) |
+| Click / drag the volume bar | Set volume (mouse wheel over the bar also works) |
 | `]` `[` | Speed up/down (±0.25x) |
 | `m` | Toggle mono |
 | `Ctrl+J` | Jump to time |
