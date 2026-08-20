@@ -15,7 +15,7 @@ and library commands.
 | `Left` `Right` | Seek -/+5s |
 | `Shift+Left` `Shift+Right` | Seek -/+30s (configurable) |
 | `N` then `j` | Seek to N×10% of the track (e.g. `7j` jumps to 70%, `0j` to the start) |
-| `+` `-` | Volume up/down |
+| `+` `-` | Volume up/down (also Left/Right when Volume is focused) |
 | `]` `[` | Speed up/down (±0.25x) |
 | `m` | Toggle mono |
 | `Ctrl+J` | Jump to time |
@@ -24,7 +24,7 @@ and library commands.
 
 | Key | Action |
 |---|---|
-| `Tab` | Cycle visible controls (Playlist / EQ / Source / Speed on full and compact layouts) |
+| `Tab` | Cycle visible controls (Playlist / EQ / Volume / Source / Speed on full and compact layouts) |
 | `j` `k` / `Up` `Down` | Playlist scroll / EQ band adjust (wraps around) |
 | `PageUp` `PageDown` / `Ctrl+U` `Ctrl+D` | Scroll playlist/file browser by page (outside text input) |
 | `Home` `End` / `g` `G` | Go to top/end of playlist/file browser |

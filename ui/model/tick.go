@@ -150,6 +150,9 @@ func (m *Model) tickInterval() time.Duration {
 	if m.visualizerVisible() {
 		d = m.vis.TickInterval(m.visualizerTickContext(time.Time{}))
 	}
+	if m.levelMeter != nil && m.levelMeter.Animating() && d > ui.TickFast {
+		d = ui.TickFast
+	}
 	// Keep the seek bar / time counter smooth while audio is playing, even
 	// when the visualizer driver wants a slow cadence (VisNone, classic peak
 	// idle, etc.). Overlays, paused, and stopped playback keep the slower
@@ -183,7 +186,36 @@ func (m *Model) isFullyIdle() bool {
 	if !m.reconnect.at.IsZero() {
 		return false
 	}
+	if m.levelMeter != nil && m.levelMeter.Animating() {
+		return false
+	}
 	return true
+}
+
+func (m *Model) outputSamplesInto(dst [][2]float64) int {
+	if m.player == nil {
+		return 0
+	}
+	n := m.player.StereoSamplesInto(dst)
+	gain := math.Pow(10, m.player.Volume()/20)
+	mono := m.player.Mono()
+	for i := range n {
+		if mono {
+			mixed := (dst[i][0] + dst[i][1]) / 2
+			dst[i] = [2]float64{mixed, mixed}
+		}
+		dst[i][0] *= gain
+		dst[i][1] *= gain
+	}
+	return n
+}
+
+func (m *Model) tickLevelMeter(now time.Time) {
+	if m.levelMeter == nil || m.player == nil {
+		return
+	}
+	playing := m.player.IsPlaying() && !m.player.IsPaused() && !m.buffering
+	m.levelMeter.Tick(now, playing, m.outputSamplesInto)
 }
 
 func (m *Model) tickVisualizer(now time.Time) {

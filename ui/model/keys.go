@@ -36,6 +36,7 @@ func (m *Model) quit() tea.Cmd {
 
 	m.flushPendingSpeedSave()
 	m.flushPendingEQSave()
+	m.flushPendingVolumeSave()
 	m.player.Close()
 	m.clearPlaybackTrack()
 	m.quitting = true
@@ -63,6 +64,28 @@ func (m *Model) handleSpeedKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.focus = m.previousMainFocus(focusSpeed)
 	case "space":
 		return m.togglePlayPause()
+	}
+	return nil
+}
+
+func (m *Model) handleVolumeKey(msg tea.KeyPressMsg) tea.Cmd {
+	switch msg.String() {
+	case "q", "ctrl+c":
+		return m.quit()
+	case "right", "l", "up", "k":
+		m.changeVolume(1)
+	case "left", "h", "down", "j":
+		m.changeVolume(-1)
+	case "tab":
+		m.focus = m.nextMainFocus(focusVolume)
+	case "esc", "backspace":
+		m.focus = m.previousMainFocus(focusVolume)
+	case "space":
+		return m.togglePlayPause()
+	default:
+		if delta, ok := volumeDeltaFromKey(msg); ok {
+			m.changeVolume(delta)
+		}
 	}
 	return nil
 }
@@ -425,6 +448,10 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.handleSpeedKey(msg)
 	}
 
+	if m.focus == focusVolume {
+		return m.handleVolumeKey(msg)
+	}
+
 	if m.focus == focusProvPill {
 		switch msg.String() {
 		case "q", "ctrl+c":
@@ -469,6 +496,11 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			}
 			return nil
 		}
+	}
+
+	if delta, ok := volumeDeltaFromKey(msg); ok {
+		m.changeVolume(delta)
+		return nil
 	}
 
 	switch msg.String() {
@@ -631,14 +663,6 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.notifyPlayback()
 			return cmd
 		}
-
-	case "+", "=":
-		m.player.SetVolume(m.player.Volume() + 1)
-		m.notifyPlayback()
-
-	case "-":
-		m.player.SetVolume(m.player.Volume() - 1)
-		m.notifyPlayback()
 
 	case "r":
 		m.playlist.CycleRepeat()
@@ -867,12 +891,6 @@ func (m *Model) handleFullVisualizerKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.doSeek(5 * time.Second)
 	case "shift+right":
 		return m.doSeek(m.seekStepLarge)
-	case "+", "=":
-		m.player.SetVolume(m.player.Volume() + 1)
-		m.notifyPlayback()
-	case "-":
-		m.player.SetVolume(m.player.Volume() - 1)
-		m.notifyPlayback()
 	case "v":
 		m.vis.CycleMode()
 		m.vis.RequestRefresh()
@@ -880,6 +898,10 @@ func (m *Model) handleFullVisualizerKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "ctrl+k", "?":
 		m.exitFullVisualizer()
 		m.openKeymap()
+	default:
+		if delta, ok := volumeDeltaFromKey(msg); ok {
+			m.changeVolume(delta)
+		}
 	}
 	return nil
 }

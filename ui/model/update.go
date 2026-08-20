@@ -130,6 +130,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cachedPos = 0
 		}
 		m.tickVisualizer(now)
+		m.tickLevelMeter(now)
 		m.tickProgressReport(now)
 		// Process debounced yt-dlp seek.
 		var seekCmd tea.Cmd
@@ -150,6 +151,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.tickPendingSpeedSave(dt)
 		m.tickPendingEQSave(dt)
+		m.tickPendingVolumeSave(dt)
 		if m.pendingSeekActive && !m.pendingSeekExpiresAt.IsZero() && !now.Before(m.pendingSeekExpiresAt) {
 			m.pendingSeekActive = false
 			m.pendingSeekExpiresAt = time.Time{}
@@ -866,6 +868,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case playback.SetVolumeMsg:
 		m.player.SetVolume(msg.VolumeDB)
+		m.scheduleVolumeSave()
 		m.notifyAll()
 		return m, nil
 
@@ -878,6 +881,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case playback.QuitMsg:
 		m.flushPendingSpeedSave()
 		m.flushPendingEQSave()
+		m.flushPendingVolumeSave()
 		m.player.Close()
 		m.clearPlaybackTrack()
 		m.quitting = true
@@ -930,6 +934,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case ipc.VolumeMsg:
 		m.player.SetVolume(msg.DB)
+		m.scheduleVolumeSave()
 		m.notifyAll()
 		return m, nil
 	case ipc.SeekMsg:

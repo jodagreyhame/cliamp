@@ -42,6 +42,7 @@ func New(p player.Engine, pl *playlist.Playlist, providers []ProviderEntry, defa
 		luaMgr:           luaMgr,
 		historyStore:     history.New(),
 		showAlbumHeaders: false,
+		levelMeter:       ui.NewLevelMeter(),
 	}
 	if luaMgr != nil {
 		m.pluginEmit = &pluginEmitState{}

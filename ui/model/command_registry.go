@@ -16,6 +16,7 @@ const (
 	commandModeMain commandMode = 1 << iota
 	commandModeProvider
 	commandModeEQ
+	commandModeVolume
 	commandModeSpeed
 	commandModeProviderPill
 	commandModeKeymap
@@ -71,7 +72,7 @@ func (c commandSpec) enabled(m Model) bool {
 // editor keys that are not shown in the global keymap. Keep key labels in this
 // table so the keymap cannot drift from plugin key reservations.
 var commandRegistry = []commandSpec{
-	{Mode: commandModeMain | commandModeEQ | commandModeSpeed, Keys: []string{"space"}, KeyLabel: "Space", Label: "Play / Pause", Keymap: true, ContextHelp: true, Primary: true},
+	{Mode: commandModeMain | commandModeEQ | commandModeVolume | commandModeSpeed, Keys: []string{"space"}, KeyLabel: "Space", Label: "Play / Pause", Keymap: true, ContextHelp: true, Primary: true},
 	{Mode: commandModeMain, Keys: []string{"s"}, KeyLabel: "s", Label: "Stop", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{">", "."}, KeyLabel: "> .", Label: "Next track", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"<", ","}, KeyLabel: "< ,", Label: "Previous track", Keymap: true},
@@ -141,6 +142,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeProvider, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Load", ContextHelp: true, Primary: true},
 	{Mode: commandModeProvider, Keys: []string{"esc", "backspace", "b"}, KeyLabel: "Esc", Label: "Back", ContextHelp: true, Cancel: true},
 	{Mode: commandModeEQ, Keys: []string{"up", "down"}, KeyLabel: "Up Down", Label: "Gain", ContextHelp: true},
+	{Mode: commandModeVolume, Keys: []string{"left", "right", "+", "-"}, KeyLabel: "Left Right", Label: "Volume", ContextHelp: true},
 	{Mode: commandModeSpeed, Keys: []string{"left", "right"}, KeyLabel: "Left Right", Label: "Speed", ContextHelp: true},
 	{Mode: commandModeProviderPill, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Open", ContextHelp: true, Primary: true},
 	{Mode: commandModeProviderPill, Keys: []string{"esc", "backspace"}, KeyLabel: "Esc", Label: "Back", ContextHelp: true, Cancel: true},

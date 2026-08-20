@@ -215,6 +215,7 @@ func (m Model) mainSections(playlist string, includeTransient, contentFirst bool
 				"",
 				m.renderSpectrum(),
 				m.renderSeekBar(),
+				m.renderLevelRow(),
 				m.renderControls(),
 			}
 			if source := m.renderProviderPill(); source != "" {
@@ -288,8 +289,7 @@ func (m Model) renderCompactControls() string {
 		labels := [10]string{"70", "180", "320", "600", "1k", "3k", "6k", "12k", "14k", "16k"}
 		eqValue += " " + eqActiveStyle.Render(fmt.Sprintf("%s %+.0fdB", labels[m.eqCursor], bands[m.eqCursor]))
 	}
-	return eqLabel + eqValue +
-		" " + labelStyle.Render("VOL ") + fmt.Sprintf("%+.0fdB", m.player.Volume()) + mono
+	return eqLabel + eqValue + " " + m.renderCompactLevel() + " " + m.renderVolumeValue() + mono
 }
 
 func (m Model) renderCompactSource() string {
@@ -526,30 +526,10 @@ func (m Model) renderControls() string {
 	}
 	left := eqLabel + dimStyle.Render("[") + activeToggle.Render(presetName) + dimStyle.Render("] ") + strings.Join(eqParts, " ")
 
-	vol := m.player.Volume()
-	volMin := m.player.VolumeMin()
-	frac := max(0, min(1, (vol-volMin)/(6-volMin)))
-	dbStr := fmt.Sprintf(" %+.0fdB", vol)
-	monoStr := ""
-	if m.player.Mono() {
-		monoStr = " " + activeToggle.Render("[M]")
-	}
-
+	right := m.renderVolumeCluster(left)
 	leftW := lipgloss.Width(left)
-	volLabel := labelStyle.Render("VOL ")
-	volSuffix := dimStyle.Render(dbStr) + monoStr
-	volLabelW := lipgloss.Width(volLabel)
-	volSuffixW := lipgloss.Width(volSuffix)
-	barW := max(6, (ui.PanelWidth-leftW-2-volLabelW-volSuffixW)*3/4)
-	filled := int(frac * float64(barW))
-
-	bar := volBarStyle.Render(strings.Repeat("█", filled)) +
-		dimStyle.Render(strings.Repeat("░", barW-filled))
-
-	right := volLabel + bar + volSuffix
 	rightW := lipgloss.Width(right)
 	gap := max(1, ui.PanelWidth-leftW-rightW)
-
 	return left + strings.Repeat(" ", gap) + right
 }
 
@@ -919,6 +899,8 @@ func (m Model) renderHelp() string {
 		return m.commandHelp(commandModeProviderPill)
 	case focusSpeed:
 		return m.commandHelp(commandModeSpeed)
+	case focusVolume:
+		return m.commandHelp(commandModeVolume)
 	case focusEQ:
 		return m.commandHelp(commandModeEQ)
 	default:

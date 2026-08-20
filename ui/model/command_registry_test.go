@@ -27,6 +27,7 @@ func TestCommandHelpKeepsEssentialHintsAtMinimumWidth(t *testing.T) {
 		{name: "main", mode: commandModeMain, keys: []string{"Space", "Ctrl+K"}},
 		{name: "provider", mode: commandModeProvider, keys: []string{"Esc", "Enter", "Ctrl+K"}},
 		{name: "equalizer", mode: commandModeEQ, keys: []string{"Space", "Ctrl+K"}},
+		{name: "volume", mode: commandModeVolume, keys: []string{"Space", "Ctrl+K"}},
 		{name: "speed", mode: commandModeSpeed, keys: []string{"Space", "Ctrl+K"}},
 		{name: "provider pill", mode: commandModeProviderPill, keys: []string{"Esc", "Enter", "Ctrl+K"}},
 		{name: "keymap", mode: commandModeKeymap, keys: []string{"Esc", "/", "Ctrl+K"}},

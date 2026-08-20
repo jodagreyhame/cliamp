@@ -5,11 +5,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	tea "charm.land/bubbletea/v2"
 )
 
 const (
 	speedSaveDebounce = time.Second
 	eqSaveDebounce    = time.Second
+	volumeSaveDebounce = time.Second
 )
 
 // SetEQPreset sets a built-in preset by name. Supplying bands selects the
@@ -163,4 +166,69 @@ func (m *Model) flushPendingEQSave() {
 	}
 	m.eqSaveAfter = 0
 	m.saveEQ()
+}
+
+func (m *Model) changeVolume(delta float64) {
+	if m.player == nil {
+		return
+	}
+	m.setVolume(m.player.Volume() + delta)
+}
+
+func (m *Model) setVolume(db float64) {
+	if m.player == nil {
+		return
+	}
+	m.player.SetVolume(db)
+	m.scheduleVolumeSave()
+	m.notifyPlayback()
+}
+
+func volumeDeltaFromKey(msg tea.KeyPressMsg) (float64, bool) {
+	switch msg.String() {
+	case "+", "=", "plus", "shift+=", "shift+plus":
+		return 1, true
+	case "-", "minus", "shift+-", "shift+minus":
+		return -1, true
+	}
+	switch msg.Text {
+	case "+", "=":
+		return 1, true
+	case "-":
+		return -1, true
+	}
+	return 0, false
+}
+
+func (m *Model) scheduleVolumeSave() {
+	m.volumeSaveAfter = volumeSaveDebounce
+}
+
+func (m *Model) saveVolume() {
+	if m.configSaver == nil || m.player == nil {
+		return
+	}
+	if err := m.configSaver.Save("volume", fmt.Sprintf("%.0f", m.player.Volume())); err != nil {
+		m.status.Errorf(statusTTLDefault, "Config save failed: %s", err)
+	}
+}
+
+func (m *Model) tickPendingVolumeSave(dt time.Duration) {
+	if m.volumeSaveAfter <= 0 {
+		return
+	}
+	m.volumeSaveAfter -= dt
+	if m.volumeSaveAfter > 0 {
+		return
+	}
+	m.volumeSaveAfter = 0
+	m.saveVolume()
+}
+
+func (m *Model) flushPendingVolumeSave() {
+	if m.volumeSaveAfter <= 0 {
+		return
+	}
+	m.volumeSaveAfter = 0
+	m.saveVolume()
 }

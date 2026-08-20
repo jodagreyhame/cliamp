@@ -57,7 +57,7 @@ func (m *Model) recomputeLayout() {
 	case width >= 80 && height >= 24:
 		layout.tier = layoutFull
 		layout.visualizerRows = ui.DefaultVisRows
-		layout.fixedRows = 16
+		layout.fixedRows = 17
 	case width >= 56 && height >= 16:
 		layout.tier = layoutCompact
 		layout.visualizerRows = 3

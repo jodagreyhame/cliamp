@@ -268,9 +268,19 @@ kbd{color:var(--ink);background:var(--fg-hi);padding:1px 6px;border-radius:3px;
 .t-seek-fill{color:var(--amber);opacity:.85;letter-spacing:-1px}
 .t-seek-label{color:var(--amber);font-weight:800;letter-spacing:2px;padding:0 8px}
 
-.t-eqvol{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}
+.t-eqvol{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 .t-eq-inline{display:inline-flex;align-items:baseline;gap:6px;flex-wrap:wrap}
 .t-eq-bands{display:inline-flex;gap:5px;margin-left:4px;color:var(--amber-hi);font-size:12px;font-variant-numeric:tabular-nums}
+.t-lvl-inline{display:inline-flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;min-width:132px}
+.t-lvl-ch{display:inline-flex;align-items:center;gap:4px}
+.t-lvl-ch b{color:var(--mute);font-weight:700;font-size:11px}
+.t-lvl-bar{display:inline-flex;gap:1px;height:10px;align-items:flex-end}
+.t-lvl-bar i{display:block;width:4px;height:10px;background:var(--line-hi);opacity:.35}
+.t-lvl-bar i.on{opacity:1}
+.t-lvl-bar i.on:nth-child(-n+6){background:var(--green);box-shadow:0 0 6px var(--green-glow)}
+.t-lvl-bar i.on:nth-child(n+7):nth-child(-n+9){background:var(--amber);box-shadow:0 0 6px var(--amber-glow)}
+.t-lvl-bar i.on:nth-child(n+10){background:var(--red);box-shadow:0 0 6px rgba(255,80,80,.45)}
+.t-lvl-bar i.peak{opacity:1;background:var(--fg-hi)}
 .t-vol-inline{display:inline-flex;align-items:center;gap:8px;margin-left:auto;flex:1;min-width:180px;max-width:280px}
 .t-vol-db{font-variant-numeric:tabular-nums;color:var(--mute)}
 .t-label{color:var(--mute);font-weight:700}
@@ -573,6 +583,11 @@ footer{border-top:1px solid var(--line);background:var(--ink-2);padding:46px 0 5
                 <span class="t-label">EQ</span>
                 <span class="t-dim">[</span><span class="t-active">Rock</span><span class="t-dim">]</span>
                 <span class="t-eq-bands">+5 +4 +2 -1 -2 +2 +4 +5 +5 +5</span>
+              </span>
+              <span class="t-lvl-inline" aria-label="Audio level">
+                <span class="t-label">LVL</span>
+                <span class="t-lvl-ch"><b>L</b><span class="t-lvl-bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></span></span>
+                <span class="t-lvl-ch"><b>R</b><span class="t-lvl-bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></span></span>
               </span>
               <span class="t-vol-inline">
                 <span class="t-label">VOL</span>

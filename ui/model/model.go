@@ -24,6 +24,7 @@ type focusArea int
 const (
 	focusPlaylist focusArea = iota
 	focusEQ
+	focusVolume
 	focusSpeed
 	focusProvPill
 	focusSearch
@@ -37,6 +38,8 @@ func (f focusArea) label() string {
 		return "Playlist"
 	case focusEQ:
 		return "Equalizer"
+	case focusVolume:
+		return "Volume"
 	case focusSpeed:
 		return "Speed"
 	case focusProvPill:
@@ -60,7 +63,7 @@ func (m Model) mainFocusAreas() []focusArea {
 	if m.layout.tier == layoutMinimal || m.layout.tier == layoutTooSmall {
 		return areas
 	}
-	areas = append(areas, focusEQ)
+	areas = append(areas, focusEQ, focusVolume)
 	if len(m.providers) > 1 {
 		areas = append(areas, focusProvPill)
 	}
@@ -99,10 +102,10 @@ func (m Model) previousMainFocus(current focusArea) focusArea {
 // normalizeMainFocus clears a focus restored from a wider terminal when its
 // control is not rendered at the current size.
 func (m *Model) normalizeMainFocus() {
-	if (m.focus == focusEQ || m.focus == focusSpeed || m.focus == focusProvPill) && !m.mainFocusAllowed(m.focus) {
+	if (m.focus == focusEQ || m.focus == focusVolume || m.focus == focusSpeed || m.focus == focusProvPill) && !m.mainFocusAllowed(m.focus) {
 		m.focus = focusPlaylist
 	}
-	if (m.prevFocus == focusEQ || m.prevFocus == focusSpeed || m.prevFocus == focusProvPill) && !m.mainFocusAllowed(m.prevFocus) {
+	if (m.prevFocus == focusEQ || m.prevFocus == focusVolume || m.prevFocus == focusSpeed || m.prevFocus == focusProvPill) && !m.mainFocusAllowed(m.prevFocus) {
 		m.prevFocus = focusPlaylist
 	}
 }
@@ -292,6 +295,8 @@ type Model struct {
 	requests       requestState
 	speedSaveAfter time.Duration
 	eqSaveAfter    time.Duration
+	volumeSaveAfter time.Duration
+	levelMeter     *ui.LevelMeter
 	termTitle      terminalTitleState
 
 	// Jump to time mode
