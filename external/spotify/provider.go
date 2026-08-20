@@ -1,5 +1,3 @@
-//go:build !windows
-
 package spotify
 
 import (
@@ -34,6 +32,7 @@ var (
 	_ provider.PlaylistCreator = (*SpotifyProvider)(nil)
 	_ provider.CustomStreamer  = (*SpotifyProvider)(nil)
 	_ provider.Closer          = (*SpotifyProvider)(nil)
+	_ playlist.Refresher       = (*SpotifyProvider)(nil)
 )
 
 // maxResponseBody limits JSON API responses to 10 MB.
@@ -59,6 +58,8 @@ type SpotifyProvider struct {
 	// Playlist list cache to avoid redundant API calls on provider switch.
 	listCache   []playlist.PlaylistInfo
 	listCacheAt time.Time
+	cacheDir    string
+	forceRefresh bool
 }
 
 const playlistListCacheTTL = 5 * time.Minute
@@ -170,12 +171,22 @@ func (p *SpotifyProvider) Name() string { return "Spotify" }
 // during the first call doesn't trigger a request on every later use.
 func (p *SpotifyProvider) currentUserID(ctx context.Context) string {
 	p.mu.Lock()
-	if p.meFetched {
+	if p.userID != "" {
 		id := p.userID
 		p.mu.Unlock()
 		return id
 	}
 	p.mu.Unlock()
+
+	if p.session != nil {
+		if u := p.session.Username(); u != "" {
+			p.mu.Lock()
+			p.userID = u
+			p.meFetched = true
+			p.mu.Unlock()
+			return u
+		}
+	}
 
 	var me struct {
 		ID string `json:"id"`
@@ -198,12 +209,18 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 	}
 
 	p.mu.Lock()
-	if p.listCache != nil && time.Since(p.listCacheAt) < playlistListCacheTTL {
+	force := p.forceRefresh
+	if !force && p.listCache != nil && time.Since(p.listCacheAt) < playlistListCacheTTL {
 		cached := slices.Clone(p.listCache)
 		p.mu.Unlock()
 		return cached, nil
 	}
 	p.mu.Unlock()
+	if !force {
+		if idx, ok := p.loadIndex(); ok {
+			return slices.Clone(p.applyIndex(idx)), nil
+		}
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -218,7 +235,15 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 	// This doesn't include the 'Liked Songs' playlist.
 	resp, err := p.webAPI(ctx, "GET", "/v1/me/tracks", nil)
 	if err != nil {
-		return nil, fmt.Errorf("spotify: your music: %w", err)
+		logPlaylistFallback(err)
+		all, err2 := p.fetchPlaylistsSpclient(ctx)
+		if err2 != nil {
+			if idx, ok := p.loadIndex(); ok {
+				return slices.Clone(p.applyIndex(idx)), nil
+			}
+			return nil, fmt.Errorf("spotify: your music: %w", err)
+		}
+		return p.commitPlaylists(userID, all), nil
 	}
 
 	var result struct {
@@ -279,6 +304,7 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 			if cached, ok := p.trackCache[item.ID]; ok {
 				if cached.snapshotID != item.SnapshotID {
 					delete(p.trackCache, item.ID)
+					p.removeTracks(item.ID)
 				}
 			}
 			// Store snapshot_id for later cache checks in Tracks().
@@ -305,12 +331,17 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 		return sectionOrder[all[i].Section] < sectionOrder[all[j].Section]
 	})
 
+	return p.commitPlaylists(userID, all), nil
+}
+
+func (p *SpotifyProvider) commitPlaylists(userID string, all []playlist.PlaylistInfo) []playlist.PlaylistInfo {
 	p.mu.Lock()
 	p.listCache = all
 	p.listCacheAt = time.Now()
+	p.forceRefresh = false
 	p.mu.Unlock()
-
-	return slices.Clone(all), nil
+	warnCache("index", p.saveIndex(userID, all))
+	return slices.Clone(all)
 }
 
 // Tracks returns all tracks for the given Spotify playlist ID.
@@ -320,14 +351,17 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 	if err := p.ensureSession(); err != nil {
 		return nil, err
 	}
-	// Check cache — if we have tracks and the snapshot_id hasn't changed, return cached.
 	p.mu.Lock()
 	if cached, ok := p.trackCache[playlistID]; ok && cached.tracks != nil {
 		tracks := slices.Clone(cached.tracks)
+		snap := cached.snapshotID
 		p.mu.Unlock()
-		return tracks, nil
+		return p.serveTracks(playlistID, snap, tracks), nil
 	}
 	p.mu.Unlock()
+	if tracks, snap, ok := p.loadTracks(playlistID); ok {
+		return p.serveTracks(playlistID, snap, tracks), nil
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -359,7 +393,12 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 		}
 
 		if err != nil {
-			return nil, fmt.Errorf("spotify: list tracks: %w", err)
+			logPlaylistFallback(err)
+			tracks, err2 := p.fetchTracksSpclient(ctx, playlistID)
+			if err2 != nil {
+				return nil, fmt.Errorf("spotify: list tracks: %w", err)
+			}
+			return p.commitTracks(playlistID, tracks), nil
 		}
 
 		var result struct {
@@ -390,16 +429,59 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 		offset += limit
 	}
 
-	// Cache the fetched tracks.
+	return p.commitTracks(playlistID, all), nil
+}
+
+func (p *SpotifyProvider) serveTracks(playlistID, snap string, tracks []playlist.Track) []playlist.Track {
+	tracks, dirty := normalizeSpotifyTracks(tracks)
+	if tracksNeedHydration(tracks) {
+		before := slices.Clone(tracks)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		warnHydrate(p.hydrateTracks(ctx, tracks))
+		if trackMetaChanged(before, tracks) {
+			dirty = true
+		}
+	}
 	p.mu.Lock()
 	if cached, ok := p.trackCache[playlistID]; ok {
+		cached.tracks = tracks
+		if snap != "" {
+			cached.snapshotID = snap
+		}
+	} else {
+		p.trackCache[playlistID] = &playlistCache{snapshotID: snap, tracks: tracks}
+	}
+	p.mu.Unlock()
+	if dirty {
+		return p.commitTracks(playlistID, tracks)
+	}
+	return slices.Clone(tracks)
+}
+
+func (p *SpotifyProvider) commitTracks(playlistID string, all []playlist.Track) []playlist.Track {
+	p.mu.Lock()
+	snap := ""
+	if cached, ok := p.trackCache[playlistID]; ok {
 		cached.tracks = all
+		snap = cached.snapshotID
 	} else {
 		p.trackCache[playlistID] = &playlistCache{tracks: all}
 	}
 	p.mu.Unlock()
+	warnCache("tracks", p.saveTracks(playlistID, snap, all))
+	return slices.Clone(all)
+}
 
-	return slices.Clone(all), nil
+// Refresh drops the in-memory playlist list so the next Playlists() call
+// re-fetches from Spotify and rewrites the on-disk cache. Unchanged
+// snapshot IDs keep their cached tracks.
+func (p *SpotifyProvider) Refresh() {
+	p.mu.Lock()
+	p.listCache = nil
+	p.listCacheAt = time.Time{}
+	p.forceRefresh = true
+	p.mu.Unlock()
 }
 
 // isAuthError returns true if the error is an authentication/session-related
@@ -459,6 +541,7 @@ func (p *SpotifyProvider) NewStreamer(uri string) (beep.StreamSeekCloser, beep.F
 		return s, s.Format(), s.Duration(), nil
 	}
 	if !isAuthError(err) {
+		applog.UserError("spotify: stream %s failed: %v", uri, err)
 		return nil, beep.Format{}, 0, fmt.Errorf("spotify: new stream: %w", err)
 	}
 
@@ -521,16 +604,9 @@ func (p *SpotifyProvider) webAPIWithBody(ctx context.Context, method, path strin
 		}
 		if resp.StatusCode == http.StatusTooManyRequests {
 			resp.Body.Close()
-			// On the last attempt there's no retry after the wait, so don't
-			// sleep (up to 128s) just to give up; fail now.
-			if attempt == maxRetries-1 {
+			wait, retry := retryAfterWait(resp.Header.Get("Retry-After"), attempt)
+			if !retry || attempt == maxRetries-1 {
 				break
-			}
-			wait := time.Duration(1<<uint(attempt)) * time.Second
-			if ra := resp.Header.Get("Retry-After"); ra != "" {
-				if secs, err := strconv.Atoi(ra); err == nil && secs > 0 {
-					wait = time.Duration(secs) * time.Second
-				}
 			}
 			applog.UserWarn("spotify: web api rate-limited on %s, retrying in %v (attempt %d/%d)", path, wait, attempt+1, maxRetries)
 			select {
@@ -553,6 +629,24 @@ func (p *SpotifyProvider) webAPIWithBody(ctx context.Context, method, path strin
 		return resp, nil
 	}
 	return nil, fmt.Errorf("spotify: web api rate-limited on %s after %d retries (try re-authenticating)", path, maxRetries)
+}
+
+// maxRetryAfter is the longest we will sleep on a 429. Spotify sometimes
+// sends Retry-After: 86400 (24h) for the shared client_id pool; sleeping
+// that long freezes the TUI and looks like a hang.
+const maxRetryAfter = 15 * time.Second
+
+func retryAfterWait(header string, attempt int) (time.Duration, bool) {
+	wait := time.Duration(1<<uint(attempt)) * time.Second
+	if header != "" {
+		if secs, err := strconv.Atoi(header); err == nil && secs > 0 {
+			wait = time.Duration(secs) * time.Second
+		}
+	}
+	if wait > maxRetryAfter {
+		return 0, false
+	}
+	return wait, true
 }
 
 // devModeSearchLimit is the largest per-request limit /v1/search accepts for an
@@ -707,6 +801,7 @@ func (p *SpotifyProvider) AddTrackToPlaylist(ctx context.Context, playlistID str
 	delete(p.trackCache, playlistID)
 	p.listCache = nil
 	p.mu.Unlock()
+	p.removeTracks(playlistID)
 
 	return nil
 }

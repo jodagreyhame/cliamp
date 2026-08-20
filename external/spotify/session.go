@@ -1,5 +1,3 @@
-//go:build !windows
-
 package spotify
 
 import (
@@ -583,6 +581,19 @@ func (s *Session) initPlayer() error {
 	}
 	s.player = p
 	return nil
+}
+
+// Username is the librespot account name used for spclient playlist URIs.
+func (s *Session) Username() string {
+	if s == nil {
+		return ""
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.sess == nil {
+		return ""
+	}
+	return s.sess.Username()
 }
 
 // NewStream creates a decoded audio stream for the given Spotify track ID. The

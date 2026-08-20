@@ -1,5 +1,3 @@
-//go:build !windows
-
 // Package spotify integrates Spotify playback into cliamp via go-librespot.
 package spotify
 
@@ -13,6 +11,8 @@ import (
 	librespot "github.com/devgianlu/go-librespot"
 	librespotPlayer "github.com/devgianlu/go-librespot/player"
 	"github.com/gopxl/beep/v2"
+
+	"github.com/bjarneo/cliamp/applog"
 )
 
 const (
@@ -63,34 +63,40 @@ func (s *spotifyStreamer) Stream(samples [][2]float64) (n int, ok bool) {
 		return 0, false
 	}
 
-	// Each stereo sample pair needs 2 float32 values (L, R).
-	needed := len(samples) * spotifyChannels
-	if len(s.buf) < needed {
-		s.buf = make([]float32, needed)
-	}
-
-	nRead, err := s.source.Read(s.buf[:needed])
-	if err != nil && err != io.EOF {
-		if !s.closing.Load() {
-			s.err = err
+	for n < len(samples) {
+		needed := (len(samples) - n) * spotifyChannels
+		if len(s.buf) < needed {
+			s.buf = make([]float32, needed)
 		}
-		return 0, false
-	}
 
-	// Ensure we only process complete stereo pairs (drop any trailing mono sample).
-	nRead -= nRead % spotifyChannels
+		nRead, err := s.source.Read(s.buf[:needed])
+		if err != nil && err != io.EOF {
+			if !s.closing.Load() {
+				s.err = err
+				applog.UserError("spotify: decode: %v", err)
+			}
+			if n > 0 {
+				return n, true
+			}
+			return 0, false
+		}
 
-	// Convert interleaved float32 [L0,R0,L1,R1,...] to [][2]float64 pairs.
-	pairs := nRead / spotifyChannels
-	for i := range pairs {
-		samples[i][0] = float64(s.buf[i*2])
-		samples[i][1] = float64(s.buf[i*2+1])
-	}
+		nRead -= nRead % spotifyChannels
+		pairs := nRead / spotifyChannels
+		for i := range pairs {
+			samples[n+i][0] = float64(s.buf[i*2])
+			samples[n+i][1] = float64(s.buf[i*2+1])
+		}
+		n += pairs
 
-	if pairs == 0 && err == io.EOF {
-		return 0, false
+		if err == io.EOF {
+			return n, n > 0 && n == len(samples)
+		}
+		if pairs == 0 {
+			return n, n == len(samples)
+		}
 	}
-	return pairs, true
+	return n, true
 }
 
 func (s *spotifyStreamer) Err() error {

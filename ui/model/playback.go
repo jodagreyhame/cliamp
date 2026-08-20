@@ -317,7 +317,7 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 	// Fire now-playing notification for Navidrome tracks.
 	m.nowPlaying(track)
 	dur := time.Duration(track.DurationSecs) * time.Second
-	if track.Stream {
+	if track.Stream || strings.HasPrefix(track.Path, "spotify:") {
 		m.buffering = true
 		m.bufferingAt = time.Now()
 		m.err = nil

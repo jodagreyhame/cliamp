@@ -2,8 +2,6 @@
 
 Cliamp can stream your [Spotify](https://www.spotify.com/) library directly through its audio pipeline. EQ, visualizer, and all effects apply. Requires a [Spotify Premium](https://www.spotify.com/premium/) account.
 
-> **Windows:** Spotify is currently unavailable on Windows builds because the `go-librespot` playback backend used by cliamp does not compile there yet.
->
 > **Quick start:** run `cliamp setup`, pick Spotify, and follow the prompts. The recommended path is to register your own Spotify Developer app and paste its `client_id` for a private Web API rate-limit quota. Cliamp authorizes playback separately with Spotify's built-in identity. A built-in shared `client_id` is also available for users who specifically need Spotify search.
 
 ## Setup
@@ -49,7 +47,7 @@ If you would rather not register an app at all, drop the `client_id` line:
 bitrate = 320
 ```
 
-cliamp falls back to a built-in `client_id`, the same one [librespot](https://github.com/librespot-org/librespot) and [spotify-player](https://github.com/aome510/spotify-player) ship with.
+cliamp falls back to a built-in `client_id`, the same one [librespot](https://github.com/librespot-org/librespot) and [spotify-player](https://github.com/aome510/spotify-player) ship with. Spotify is listed without a `[spotify]` section; set `enabled = false` to hide it.
 
 > **Heads-up — shared rate limit:** The built-in `client_id` is shared with every librespot-, spotify-player-, and cliamp user worldwide. Spotify's per-app quota is global, so when the pool is busy you may see `429 Too Many Requests` errors during search or playlist loading. Cliamp retries with backoff, but persistent 429s mean the pool is hot — your own `client_id` doesn't share that problem.
 
@@ -58,6 +56,8 @@ cliamp falls back to a built-in `client_id`, the same one [librespot](https://gi
 Once authenticated, Spotify appears as a provider alongside Navidrome and local playlists. Press `Esc`/`b` to open the provider browser and select Spotify.
 
 Your Spotify playlists are listed in the provider panel. Navigate with the arrow keys and press `Enter` to load one. Tracks are streamed through cliamp's audio pipeline, so EQ, visualizer, mono, and all other effects work exactly as with local files.
+
+Playlist lists are cached under `~/.config/cliamp/spotify-cache/` (`%APPDATA%\cliamp\spotify-cache\` on Windows). `Ctrl+R` on the provider list refreshes it. On Web API 429, cliamp loads the library via the librespot playlist protocol instead of sleeping on Retry-After.
 
 ## Controls
 
@@ -69,6 +69,7 @@ When focused on the provider panel:
 | `Enter` | Load the selected playlist |
 | `Tab` | Switch between provider and playlist focus |
 | `Esc` / `b` | Open provider browser |
+| `Ctrl+R` | Refresh playlist list from Spotify (rewrites the local cache) |
 
 After loading a playlist you return to the standard playlist view with all the usual controls (seek, volume, EQ, shuffle, repeat, queue, search, lyrics).
 
@@ -96,3 +97,13 @@ Podcast episodes work like tracks. Press `Ctrl+F` to search Spotify and matching
 - Spotify Premium account
 - No additional system dependencies beyond cliamp itself
 - A registered app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) is **optional** — cliamp ships with a built-in fallback `client_id`
+
+## Building from source
+
+Before `go build` or `go test`, generate the local go-librespot checkout (gitignored):
+
+```
+go run scripts/setup_librespot.go
+```
+
+`make build` and `make test` run that first. Overlays live in `patches/go-librespot/`.

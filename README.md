@@ -61,8 +61,8 @@ Download from [GitHub Releases](https://github.com/bjarneo/cliamp/releases/lates
 > sound server — see [Troubleshooting](#troubleshooting).
 >
 > **Windows:** download `cliamp-windows-amd64.exe` from Releases. If `HOME` is not
-> set, cliamp stores its config under `%APPDATA%\cliamp`. The Spotify provider is
-> currently unavailable on Windows builds.
+> set, cliamp stores its config under `%APPDATA%\cliamp`. Spotify Premium
+> playback is supported; run `cliamp setup` and pick Spotify.
 
 **Optional runtime dependencies** (all platforms, all install methods):
 
@@ -132,7 +132,7 @@ sudo pacman -S alsa-lib
 
 **macOS:** No extra dependencies — CoreAudio is used.
 
-**Windows:** No extra SDKs required for the core player. `ffmpeg.exe` and `yt-dlp.exe` remain optional runtime dependencies for the same formats/providers as on other platforms. Spotify is not available on Windows builds.
+**Windows:** No extra SDKs required for the core player. `ffmpeg.exe` and `yt-dlp.exe` remain optional runtime dependencies for the same formats/providers as on other platforms. Spotify needs `go run scripts/setup_librespot.go` once before `go build` (clones go-librespot v0.7.1 and applies `patches/go-librespot/`).
 
 **Clone and build:**
 
@@ -142,7 +142,7 @@ cd cliamp
 make && make install
 ```
 
-Or without Make: `go build -o cliamp .`
+Or without Make: `go run scripts/setup_librespot.go && go build -o cliamp .`
 
 `make install` places the binary in `~/.local/bin/`.
 

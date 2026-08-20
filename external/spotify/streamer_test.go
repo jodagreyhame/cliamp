@@ -1,10 +1,9 @@
-//go:build !windows
-
 package spotify
 
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"runtime"
@@ -14,6 +13,67 @@ import (
 
 	librespotPlayer "github.com/devgianlu/go-librespot/player"
 )
+
+type chunkSource struct {
+	data  []float32
+	pos   int
+	chunk int
+}
+
+func (c *chunkSource) Read(p []float32) (int, error) {
+	if c.pos >= len(c.data) {
+		return 0, io.EOF
+	}
+	n := c.chunk
+	if n > len(p) {
+		n = len(p)
+	}
+	if remain := len(c.data) - c.pos; n > remain {
+		n = remain
+	}
+	copy(p, c.data[c.pos:c.pos+n])
+	c.pos += n
+	if c.pos >= len(c.data) {
+		return n, io.EOF
+	}
+	return n, nil
+}
+
+func (c *chunkSource) SetPositionMs(int64) error { return nil }
+func (c *chunkSource) PositionMs() int64         { return 0 }
+
+func TestSpotifyStreamerFillsBeepBuffer(t *testing.T) {
+	const frames = 64
+	data := make([]float32, frames*2)
+	for i := range data {
+		data[i] = float32(i)
+	}
+	s := &spotifyStreamer{
+		source:     &chunkSource{data: data, chunk: 6}, // 3 stereo frames per Read
+		durationMs: 1000,
+	}
+	out := make([][2]float64, frames)
+	n, ok := s.Stream(out)
+	if !ok || n != frames {
+		t.Fatalf("Stream = %d, %v, want %d, true (short reads must not look like EOF)", n, ok, frames)
+	}
+	for i := range out {
+		if out[i][0] != float64(i*2) || out[i][1] != float64(i*2+1) {
+			t.Fatalf("sample %d = %v", i, out[i])
+		}
+	}
+}
+
+func TestSpotifyStreamerEOF(t *testing.T) {
+	s := &spotifyStreamer{
+		source: &chunkSource{data: []float32{0.1, 0.2, 0.3, 0.4}, chunk: 4},
+	}
+	out := make([][2]float64, 8)
+	n, ok := s.Stream(out)
+	if n != 2 || ok {
+		t.Fatalf("Stream = %d, %v, want 2, false at EOF", n, ok)
+	}
+}
 
 type closeErrorSource struct {
 	closeCalls int

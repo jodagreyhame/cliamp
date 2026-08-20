@@ -73,6 +73,7 @@ eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # and playlist requests. Playback is authorized separately with Spotify's
 # built-in identity, so the first sign-in completes two steps in one tab.
 # [spotify]
+# enabled = false
 # client_id = "your-spotify-app-client-id"
 # bitrate = 320
 #

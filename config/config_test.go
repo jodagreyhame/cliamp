@@ -376,7 +376,7 @@ func TestSpotifyIsSet(t *testing.T) {
 	}{
 		{"section + custom id", SpotifyConfig{Enabled: true, ClientID: "abc"}, true},
 		{"section only (uses fallback)", SpotifyConfig{Enabled: true}, true},
-		{"no section", SpotifyConfig{}, false},
+		{"no section", SpotifyConfig{}, true},
 		{"disabled", SpotifyConfig{Disabled: true, Enabled: true, ClientID: "abc"}, false},
 	}
 	for _, tt := range tests {

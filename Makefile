@@ -2,15 +2,18 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 BINARY  ?= cliamp
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: build test vet lint staticcheck fmt fmt-check coverage security ci check clean install
+.PHONY: build test vet lint staticcheck fmt fmt-check coverage security ci check clean install librespot
 
-build:
+librespot:
+	go run scripts/setup_librespot.go
+
+build: librespot
 	go build -trimpath -ldflags="$(LDFLAGS)" -o $(BINARY) .
 
-test:
+test: librespot
 	go test ./...
 
-vet:
+vet: librespot
 	go vet ./...
 
 lint: vet
@@ -40,6 +43,7 @@ check: fmt vet test
 
 clean:
 	rm -f $(BINARY)
+	rm -rf third_party/librespot
 
 install: build
 	install -d $(HOME)/.local/bin

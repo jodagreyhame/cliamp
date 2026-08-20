@@ -91,10 +91,11 @@ type SpotifyConfig struct {
 	Bitrate  int    // preferred Spotify stream bitrate in kbps
 }
 
-// IsSet reports whether the Spotify provider should be shown. Section presence
-// is enough — a built-in fallback client_id is used when none is configured.
+// IsSet reports whether the Spotify provider should be shown. It is on unless
+// the user sets enabled = false. A built-in fallback client_id is used when
+// none is configured.
 func (s SpotifyConfig) IsSet() bool {
-	return !s.Disabled && s.Enabled
+	return !s.Disabled
 }
 
 // ResolveClientID returns the user's configured client_id, or fallbackID when

@@ -1,5 +1,3 @@
-//go:build !windows
-
 package spotify
 
 import (
@@ -46,7 +44,9 @@ func TestPlaylistsIncludesFollowedPlaylists(t *testing.T) {
 	t.Cleanup(func() { http.DefaultTransport = originalTransport })
 
 	sess := &Session{tokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "token"})}
-	got, err := New(sess, "client", 320).Playlists()
+	p := New(sess, "client", 320)
+	p.cacheDir = t.TempDir()
+	got, err := p.Playlists()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,6 +2,16 @@ package spotify
 
 import "testing"
 
+func TestNewReturnsProvider(t *testing.T) {
+	p := New(nil, "client-id", 320)
+	if p == nil {
+		t.Fatal("New() = nil, Spotify must be available on this platform")
+	}
+	if p.Name() != "Spotify" {
+		t.Fatalf("Name() = %q, want Spotify", p.Name())
+	}
+}
+
 // TestSpotifyTrackPageSizeRespectsAPILimit asserts spotifyTrackPageSize stays
 // within the Spotify Web API's silent 50-item cap; see the constant's comment
 // in provider.go for why exceeding it silently drops tracks.
